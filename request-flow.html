@@ -1,0 +1,787 @@
+<title>fhirpipeline Request Flow</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,wght@0,400;0,500;0,600;1,400&family=Public+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+
+<style>
+  :root{
+    --ground:#f4f6f5;
+    --surface:#ffffff;
+    --surface-2:#eaefed;
+    --border:#d6dedb;
+    --border-strong:#b9c6c2;
+    --ink:#141c1a;
+    --ink-2:#586662;
+    --accent:#0d6e64;
+    --accent-ink:#0a5750;
+    --accent-soft:#dbeae7;
+    --ok:#2f7d4f;      --ok-soft:#dcefe1;
+    --warn:#8a5e10;    --warn-soft:#f2e6cd;
+    --crit:#a83c2c;    --crit-soft:#f5ddd7;
+    --shadow:0 1px 2px rgba(20,28,26,.05), 0 10px 26px -14px rgba(20,28,26,.14);
+
+    --step--1:.82rem;
+    --step-0:1.0625rem;
+    --step-1:1.2rem;
+    --step-2:1.45rem;
+    --step-3:1.95rem;
+    --step-4:2.7rem;
+
+    --measure:68ch;
+    --sans:"Public Sans", "Segoe UI", system-ui, sans-serif;
+    --serif:"Newsreader", Georgia, "Times New Roman", serif;
+    --mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0b100f;
+      --surface:#121917;
+      --surface-2:#19221f;
+      --border:#273230;
+      --border-strong:#38463f;
+      --ink:#e6ece9;
+      --ink-2:#8f9e99;
+      --accent:#31ab9c;
+      --accent-ink:#46bfb0;
+      --accent-soft:#12332e;
+      --ok:#5fb97e;     --ok-soft:#14281c;
+      --warn:#cf9f4d;   --warn-soft:#2c2312;
+      --crit:#df6f5b;   --crit-soft:#2e1713;
+      --shadow:0 1px 2px rgba(0,0,0,.35), 0 12px 34px -16px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0b100f;
+    --surface:#121917;
+    --surface-2:#19221f;
+    --border:#273230;
+    --border-strong:#38463f;
+    --ink:#e6ece9;
+    --ink-2:#8f9e99;
+    --accent:#31ab9c;
+    --accent-ink:#46bfb0;
+    --accent-soft:#12332e;
+    --ok:#5fb97e;     --ok-soft:#14281c;
+    --warn:#cf9f4d;   --warn-soft:#2c2312;
+    --crit:#df6f5b;   --crit-soft:#2e1713;
+    --shadow:0 1px 2px rgba(0,0,0,.35), 0 12px 34px -16px rgba(0,0,0,.6);
+  }
+
+  *,*::before,*::after{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:var(--ground);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:var(--step-0);
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+    text-rendering:optimizeLegibility;
+  }
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *{transition:none !important;animation:none !important}
+  }
+
+  .wrap{
+    max-width:1120px;
+    margin:0 auto;
+    padding:clamp(1.4rem,4vw,3.5rem) clamp(1.1rem,4vw,2.6rem) 5rem;
+  }
+
+  /* ---------- masthead ---------- */
+  .masthead{
+    border-bottom:1px solid var(--border);
+    padding-bottom:2.2rem;
+    margin-bottom:2.6rem;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:var(--step--1);
+    letter-spacing:.16em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+    margin:0 0 1rem;
+  }
+  h1{
+    font-family:var(--serif);
+    font-weight:500;
+    font-size:var(--step-4);
+    line-height:1.06;
+    letter-spacing:-.01em;
+    text-wrap:balance;
+    margin:0 0 1rem;
+  }
+  .standfirst{
+    font-family:var(--serif);
+    font-size:var(--step-1);
+    color:var(--ink-2);
+    max-width:56ch;
+    margin:0 0 1.7rem;
+  }
+  .meta{
+    display:flex;
+    flex-wrap:wrap;
+    gap:.5rem .55rem;
+    padding:0;margin:0;
+    list-style:none;
+  }
+  .meta li{
+    font-family:var(--mono);
+    font-size:var(--step--1);
+    color:var(--ink-2);
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:2px;
+    padding:.28rem .6rem;
+  }
+
+  /* ---------- layout ---------- */
+  .layout{display:block}
+  @media (min-width:960px){
+    .layout{
+      display:grid;
+      grid-template-columns:200px minmax(0,1fr);
+      gap:3.2rem;
+      align-items:start;
+    }
+    .toc{position:sticky;top:1.8rem}
+  }
+  .toc nav{
+    border-left:2px solid var(--border);
+    display:flex;flex-direction:column;
+    gap:.1rem;
+  }
+  .toc a{
+    font-size:var(--step--1);
+    color:var(--ink-2);
+    text-decoration:none;
+    padding:.32rem 0 .32rem .9rem;
+    margin-left:-2px;
+    border-left:2px solid transparent;
+    transition:color .15s, border-color .15s;
+  }
+  .toc a:hover,.toc a:focus-visible{color:var(--accent-ink);border-left-color:var(--accent)}
+
+  section{margin-bottom:3.4rem}
+  section > h2{
+    font-family:var(--serif);
+    font-weight:600;
+    font-size:var(--step-2);
+    letter-spacing:-.01em;
+    text-wrap:balance;
+    margin:0 0 .5rem;
+    scroll-margin-top:1.6rem;
+  }
+  section > h2 .n{
+    font-family:var(--mono);
+    font-size:var(--step--1);
+    color:var(--accent-ink);
+    margin-right:.7rem;
+    vertical-align:.16em;
+  }
+  section > p{max-width:var(--measure)}
+  p{margin:0 0 1rem}
+  a{color:var(--accent-ink)}
+  strong{font-weight:600}
+  code{
+    font-family:var(--mono);
+    font-size:.9em;
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:3px;
+    padding:.08em .38em;
+  }
+
+  /* ---------- flow diagram ---------- */
+  .flow{
+    list-style:none;
+    margin:1.6rem 0 0;
+    padding:0;
+    position:relative;
+  }
+  .flow::before{
+    content:"";
+    position:absolute;
+    left:19px;top:14px;bottom:14px;
+    width:2px;
+    background:linear-gradient(var(--border-strong),var(--border-strong));
+  }
+  .stage{
+    position:relative;
+    padding-left:56px;
+    margin-bottom:.9rem;
+  }
+  .stage__marker{
+    position:absolute;
+    left:0;top:2px;
+    width:40px;height:40px;
+    display:grid;place-items:center;
+    border-radius:50%;
+    background:var(--surface);
+    border:2px solid var(--border-strong);
+    font-family:var(--mono);
+    font-size:.9rem;
+    font-weight:600;
+    color:var(--ink-2);
+  }
+  .stage--edge .stage__marker{
+    border-color:var(--accent);
+    color:var(--accent-ink);
+    background:var(--accent-soft);
+  }
+  .stage__card{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:6px;
+    box-shadow:var(--shadow);
+    padding:.95rem 1.1rem;
+    display:flex;
+    flex-wrap:wrap;
+    align-items:baseline;
+    gap:.3rem 1rem;
+  }
+  .stage__name{
+    font-weight:600;
+    font-size:var(--step-1);
+    font-family:var(--serif);
+  }
+  .stage__file{
+    font-family:var(--mono);
+    font-size:var(--step--1);
+    color:var(--ink-2);
+  }
+  .stage__do{
+    flex-basis:100%;
+    margin:.35rem 0 0;
+    color:var(--ink-2);
+    font-size:.96rem;
+  }
+  .stage__do b{color:var(--ink);font-weight:600}
+  .stage__exits{
+    flex-basis:100%;
+    display:flex;flex-wrap:wrap;gap:.4rem;
+    margin-top:.6rem;
+  }
+  .exit{
+    font-family:var(--mono);
+    font-size:.76rem;
+    padding:.2rem .5rem;
+    border-radius:2px;
+    background:var(--crit-soft);
+    color:var(--crit);
+    border:1px solid color-mix(in srgb, var(--crit) 30%, transparent);
+    white-space:nowrap;
+  }
+  .exit--ok{background:var(--ok-soft);color:var(--ok);border-color:color-mix(in srgb,var(--ok) 30%, transparent)}
+  .exit--warn{background:var(--warn-soft);color:var(--warn);border-color:color-mix(in srgb,var(--warn) 30%, transparent)}
+
+  .branch{
+    flex-basis:100%;
+    display:grid;
+    gap:.7rem;
+    margin-top:.7rem;
+  }
+  @media (min-width:620px){.branch{grid-template-columns:1fr 1fr}}
+  .lane{
+    border:1px dashed var(--border-strong);
+    border-radius:5px;
+    padding:.7rem .8rem;
+    background:var(--surface-2);
+  }
+  .lane h4{
+    margin:0 0 .3rem;
+    font-family:var(--mono);
+    font-size:.8rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--accent-ink);
+  }
+  .lane p{margin:0;font-size:.9rem;color:var(--ink-2)}
+
+  /* ---------- step cards ---------- */
+  .steps{display:flex;flex-direction:column;gap:1rem;margin-top:1.4rem}
+  .step{
+    background:var(--surface);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:1.1rem 1.2rem;
+    box-shadow:var(--shadow);
+  }
+  .step__head{
+    display:flex;flex-wrap:wrap;align-items:baseline;gap:.5rem .8rem;
+    margin-bottom:.55rem;
+  }
+  .step__n{
+    font-family:var(--mono);font-weight:600;font-size:.85rem;
+    color:#fff;background:var(--accent);
+    border-radius:3px;padding:.12rem .5rem;
+  }
+  :root[data-theme="dark"] .step__n,
+  :root:not([data-theme="light"]) .step__n{color:#08110f}
+  @media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .step__n{color:#fff}}
+  .step__title{font-family:var(--serif);font-weight:600;font-size:var(--step-1)}
+  .step__file{font-family:var(--mono);font-size:var(--step--1);color:var(--ink-2)}
+  .kv{
+    display:grid;
+    grid-template-columns:max-content 1fr;
+    gap:.3rem 1rem;
+    font-size:.94rem;
+    margin-top:.4rem;
+  }
+  .kv dt{
+    font-family:var(--mono);
+    font-size:.76rem;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--ink-2);
+    padding-top:.15rem;
+  }
+  .kv dd{margin:0}
+  .kv dd code{font-size:.85em}
+
+  /* ---------- tables ---------- */
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-top:1.3rem;border:1px solid var(--border);border-radius:6px}
+  table{border-collapse:collapse;width:100%;font-size:.92rem;min-width:640px}
+  th,td{text-align:left;padding:.6rem .85rem;border-bottom:1px solid var(--border);vertical-align:top}
+  thead th{
+    background:var(--surface-2);
+    font-family:var(--mono);
+    font-size:.74rem;
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    color:var(--ink-2);
+    position:sticky;top:0;
+  }
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:nth-child(odd) td{background:color-mix(in srgb,var(--surface-2) 45%, transparent)}
+  td code{background:transparent;border:none;padding:0}
+  .http{font-family:var(--mono);font-weight:600}
+  .http[data-k="2"]{color:var(--ok)}
+  .http[data-k="4"]{color:var(--warn)}
+  .http[data-k="5"]{color:var(--crit)}
+
+  /* ---------- worked example ---------- */
+  .trace{
+    background:var(--surface-2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:1.1rem 1.2rem;
+    font-family:var(--mono);
+    font-size:.86rem;
+    line-height:1.75;
+    overflow-x:auto;
+    margin-top:1rem;
+  }
+  .trace .lbl{color:var(--accent-ink)}
+  .trace .arrow{color:var(--ink-2)}
+  .trace .r-ok{color:var(--ok);font-weight:600}
+  .trace .r-bad{color:var(--crit);font-weight:600}
+
+  .callout{
+    border-left:3px solid var(--accent);
+    background:var(--accent-soft);
+    padding:.85rem 1.1rem;
+    border-radius:0 5px 5px 0;
+    margin-top:1.3rem;
+    font-size:.95rem;
+  }
+  .callout p{margin:0}
+  .callout p + p{margin-top:.5rem}
+
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:2px}
+
+  footer{
+    margin-top:4rem;padding-top:1.4rem;
+    border-top:1px solid var(--border);
+    font-size:var(--step--1);
+    color:var(--ink-2);
+    font-family:var(--mono);
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Request Flow · Architecture</p>
+    <h1>fhirpipeline Request Flow</h1>
+    <p class="standfirst">How one HTTP request travels from the Flask edge, through the Flask-free ingest pipeline, into the append-only store, and back out &mdash; every step, every failure exit.</p>
+    <ul class="meta">
+      <li>FHIR R4B</li>
+      <li>JSON only (Phase&nbsp;1)</li>
+      <li>Flask-free core</li>
+      <li>append-only versioned store</li>
+      <li>one error currency: OperationOutcome</li>
+    </ul>
+  </header>
+
+  <div class="layout">
+    <aside class="toc">
+      <nav aria-label="Contents">
+        <a href="#shape">The shape of it</a>
+        <a href="#diagram">Full flow diagram</a>
+        <a href="#steps">Every step, expanded</a>
+        <a href="#read">Read side</a>
+        <a href="#failure">Failure map</a>
+        <a href="#ex-single">Example: single POST</a>
+        <a href="#ex-bundle">Example: Bundle</a>
+        <a href="#extend">Where to change things</a>
+      </nav>
+    </aside>
+
+    <main>
+
+      <section id="shape">
+        <h2>The shape of it</h2>
+        <p>Three bands. The <strong>transport edge</strong> (Flask) does only what needs a request object: auth, tracking, and shaping the HTTP response. The <strong>pipeline</strong> (<code>fhirpipeline/</code>) takes plain bytes and returns a plain dataclass &mdash; it never imports Flask. The <strong>store</strong> (<code>persist.py</code>) is handed an injected collection accessor, so it has no DB driver at import time.</p>
+        <p>A single resource and a Bundle enter through different routes but share one core: <code>ingest()</code> detects the shape, and a Bundle entry is validated by the exact code a lone <code>POST</code> uses. Every failure &mdash; anywhere &mdash; leaves as an <code>OperationOutcome</code> with the right HTTP status.</p>
+        <div class="callout">
+          <p><strong>Convert first, then validate.</strong> Steps 2&ndash;4 turn whatever arrived into <em>canonical FHIR JSON</em> (spec fields only, correct primitive types, ISO dates, no nulls). Everything from step 5 onward works on that one predictable shape.</p>
+        </div>
+      </section>
+
+      <section id="diagram">
+        <h2>Full flow diagram</h2>
+        <p>Markers <code>1&ndash;9</code> run top to bottom. Teal markers are the transport edge; the rest is the Flask-free pipeline and store. Red chips are failure exits &mdash; the response status returned if that step rejects.</p>
+
+        <ol class="flow">
+
+          <li class="stage stage--edge">
+            <div class="stage__marker">1</div>
+            <div class="stage__card">
+              <span class="stage__name">Route &amp; auth</span>
+              <span class="stage__file">routes/common/auth.py &middot; resource_common.py / bundle_common.py</span>
+              <p class="stage__do">Blueprint matches <code>POST /Observation</code> or <code>POST /Bundle</code>. <b>validate_auth_request()</b> checks the <code>Client</code> header + <code>Bearer</code> JWT &rarr; <code>(clientname, payload)</code>. A tracking record is opened.</p>
+              <div class="stage__exits">
+                <span class="exit">ValueError &rarr; 401 security</span>
+              </div>
+            </div>
+          </li>
+
+          <li class="stage">
+            <div class="stage__marker">2</div>
+            <div class="stage__card">
+              <span class="stage__name">parse</span>
+              <span class="stage__file">fhirpipeline/parse.py</span>
+              <p class="stage__do">Raw body bytes + <code>Content-Type</code> &rarr; a JSON <b>dict</b> guaranteed to carry a non-empty <code>resourceType</code>. Missing <code>Content-Type</code> &rarr; a warning, not a failure.</p>
+              <div class="stage__exits">
+                <span class="exit">non-JSON &rarr; 415 not-supported</span>
+                <span class="exit">empty &rarr; 400 required</span>
+                <span class="exit">bad JSON / no resourceType &rarr; 400 structure</span>
+              </div>
+            </div>
+          </li>
+
+          <li class="stage">
+            <div class="stage__marker">3</div>
+            <div class="stage__card">
+              <span class="stage__name">registry lookup</span>
+              <span class="stage__file">fhirpipeline/registry.py</span>
+              <p class="stage__do"><b>get_spec(resourceType)</b> &rarr; a <code>ResourceSpec</code> (collection, required fields, value sets, invariants, duplicate key, search params) or <code>None</code>. Data, not logic &mdash; consumed by steps 4&ndash;8.</p>
+              <div class="stage__exits">
+                <span class="exit">no spec &rarr; 404 not-supported</span>
+              </div>
+            </div>
+          </li>
+
+          <li class="stage">
+            <div class="stage__marker">4</div>
+            <div class="stage__card">
+              <span class="stage__name">dispatch &mdash; one path per shape</span>
+              <span class="stage__file">fhirpipeline/dispatch.py</span>
+              <p class="stage__do">Branch on <code>resourceType</code>. Both branches run the <b>same</b> steps 5&ndash;6.</p>
+              <div class="branch">
+                <div class="lane">
+                  <h4>single</h4>
+                  <p><code>dispatch_single()</code>: check the URL hint matches the body, then steps 5&ndash;6 once.</p>
+                </div>
+                <div class="lane">
+                  <h4>Bundle</h4>
+                  <p><code>dispatch_bundle()</code>: validate the envelope (<code>type</code> &isin; transaction / batch / collection), then run <em>every</em> <code>entry.resource</code> through steps 5&ndash;6. Per-entry failures are captured, not raised. <code>transaction</code> = all-or-nothing.</p>
+                </div>
+              </div>
+              <div class="stage__exits">
+                <span class="exit">body vs URL mismatch &rarr; 400 processing</span>
+                <span class="exit">bad Bundle.type &rarr; 400 structure</span>
+              </div>
+            </div>
+          </li>
+
+          <li class="stage">
+            <div class="stage__marker">5</div>
+            <div class="stage__card">
+              <span class="stage__name">canonicalize</span>
+              <span class="stage__file">fhirpipeline/canonicalize.py</span>
+              <p class="stage__do"><b>construct_fhir_element(rt, dict)</b> via <code>fhir.resources</code> R4B. On success, re-serialise with <code>model.json(exclude_none=True)</code> &rarr; <b>canonical JSON</b>. Unknown fields, wrong primitive types, and bad date formats fail here.</p>
+              <div class="stage__exits">
+                <span class="exit">doesn't construct &rarr; 400 structure (one issue per bad field)</span>
+              </div>
+            </div>
+          </li>
+
+          <li class="stage">
+            <div class="stage__marker">6</div>
+            <div class="stage__card">
+              <span class="stage__name">validate</span>
+              <span class="stage__file">fhirpipeline/validate.py + invariants/observation.py</span>
+              <p class="stage__do">On the canonical dict: <b>required elements</b>, <b>value-set bindings</b> (<code>status</code>, <code>intent</code>, &hellip; &mdash; the checks <code>fhir.resources</code> does <em>not</em> do), and <b>cross-element invariants</b> (obs-6, obs-7, has-a-result). All problems accumulated so the client sees them at once.</p>
+              <div class="stage__exits">
+                <span class="exit">any error-severity issue &rarr; 422 invariant</span>
+                <span class="exit exit--warn">warnings &rarr; carried on the response</span>
+              </div>
+            </div>
+          </li>
+
+          <li class="stage">
+            <div class="stage__marker">7</div>
+            <div class="stage__card">
+              <span class="stage__name">assemble &mdash; IngestResult</span>
+              <span class="stage__file">fhirpipeline/pipeline.py</span>
+              <p class="stage__do"><code>ingest()</code> <b>never raises</b>. Success &rarr; <code>IngestResult(ok=True, kind="single"|"bundle", canonical|bundle, warnings)</code>. Any <code>PipelineError</code> &rarr; <code>ok=False</code> + <code>outcome</code> + status. A rejected transaction &rarr; <code>ok=False</code>, 400, one issue per failed entry.</p>
+              <div class="stage__exits">
+                <span class="exit">unexpected Exception &rarr; 500 exception (detail to logs only)</span>
+                <span class="exit exit--ok">ok &rarr; hand to persist</span>
+              </div>
+            </div>
+          </li>
+
+          <li class="stage">
+            <div class="stage__marker">8</div>
+            <div class="stage__card">
+              <span class="stage__name">persist &mdash; append-only</span>
+              <span class="stage__file">fhirpipeline/persist.py</span>
+              <p class="stage__do">Injected <code>get_collection(client, name) &rarr; collection | None</code>. <b>create</b>: assign <code>id</code> + <code>meta.versionId "1"</code>, dedup (ResourceId &rarr; identifier &rarr; business key), insert row. <b>update</b>: flip old row <code>IsCurrent&nbsp;&rarr;&nbsp;0</code>, insert v+1. <b>delete</b>: flip + insert a tombstone. Bundle: <code>persist_bundle</code> loops this per entry.</p>
+              <div class="stage__exits">
+                <span class="exit">duplicate &rarr; 409</span>
+                <span class="exit">target missing &rarr; 404</span>
+                <span class="exit">DB down + delete &rarr; 503</span>
+                <span class="exit exit--warn">DB down + write &rarr; 202 spooled to file</span>
+                <span class="exit exit--ok">201 / 200 / 204</span>
+              </div>
+            </div>
+          </li>
+
+          <li class="stage stage--edge">
+            <div class="stage__marker">9</div>
+            <div class="stage__card">
+              <span class="stage__name">Transport response</span>
+              <span class="stage__file">resource_common.py / bundle_common.py</span>
+              <p class="stage__do"><b>single</b>: body is the stored resource (or the <code>OperationOutcome</code>), plus <code>Location</code> and <code>ETag: W/"&lt;versionId&gt;"</code>. <b>Bundle</b>: a <code>&lt;type&gt;-response</code> Bundle, one entry per request entry with its own <code>response.status</code> / <code>location</code> / <code>outcome</code>. Tracking record finalised.</p>
+              <div class="stage__exits">
+                <span class="exit">unhandled &rarr; 500 OperationOutcome, traceback to logs</span>
+              </div>
+            </div>
+          </li>
+
+        </ol>
+      </section>
+
+      <section id="steps">
+        <h2>Every step, expanded</h2>
+        <p>The same nine markers, with the exact contract each layer honours. Everything from step 2 down is import-clean of Flask.</p>
+
+        <div class="steps">
+
+          <article class="step">
+            <div class="step__head"><span class="step__n">1</span><span class="step__title">Route &amp; auth</span><span class="step__file">routes/common/auth.py</span></div>
+            <dl class="kv">
+              <dt>in</dt><dd>Flask <code>request</code> (headers, body)</dd>
+              <dt>out</dt><dd><code>(clientname, payload)</code>; a fresh tracking-data dict</dd>
+              <dt>fails</dt><dd><code>ValueError</code> &rarr; caller returns <code>401</code> + <code>auth_outcome(str(e))</code> (<code>OperationOutcome</code>, code <code>security</code>)</dd>
+              <dt>shared</dt><dd>same function for single routes, the Bundle route, and any future module</dd>
+            </dl>
+          </article>
+
+          <article class="step">
+            <div class="step__head"><span class="step__n">2</span><span class="step__title">parse</span><span class="step__file">fhirpipeline/parse.py</span></div>
+            <dl class="kv">
+              <dt>in</dt><dd><code>raw: bytes | str | None</code>, <code>content_type: str | None</code></dd>
+              <dt>out</dt><dd><code>(dict, warnings)</code> &mdash; dict always has a non-empty <code>resourceType</code></dd>
+              <dt>raises</dt><dd><code>UnsupportedMediaType</code> 415 &middot; <code>EmptyBody</code> 400 &middot; <code>MalformedBody</code> 400</dd>
+              <dt>note</dt><dd>Phase 2 adds an XML branch <em>here only</em>; the output contract stays &ldquo;a JSON dict&rdquo;</dd>
+            </dl>
+          </article>
+
+          <article class="step">
+            <div class="step__head"><span class="step__n">3</span><span class="step__title">registry lookup</span><span class="step__file">fhirpipeline/registry.py</span></div>
+            <dl class="kv">
+              <dt>in</dt><dd><code>resourceType: str</code></dd>
+              <dt>out</dt><dd><code>ResourceSpec | None</code> &mdash; <code>collection</code>, <code>required_fields</code>, <code>value_sets</code>, <code>invariants</code>, <code>duplicate_key_fn</code>, <code>search_params</code></dd>
+              <dt>used by</dt><dd>dispatch (supported?), validate (rules), persist (collection + dedup), search (param paths)</dd>
+              <dt>extend</dt><dd>one <code>RESOURCE_REGISTRY</code> entry = a fully wired resource type</dd>
+            </dl>
+          </article>
+
+          <article class="step">
+            <div class="step__head"><span class="step__n">4</span><span class="step__title">dispatch</span><span class="step__file">fhirpipeline/dispatch.py</span></div>
+            <dl class="kv">
+              <dt>in</dt><dd>the parsed dict + optional <code>resource_type_hint</code> (from the URL)</dd>
+              <dt>out</dt><dd>single: <code>(canonical, warnings)</code> &nbsp;&middot;&nbsp; Bundle: <code>BundleResult</code> (a list of <code>EntryResult</code>)</dd>
+              <dt>raises</dt><dd><code>ResourceTypeMismatch</code> 400 &middot; <code>UnsupportedResource</code> 404 &middot; <code>MalformedBody</code> 400 (bad envelope)</dd>
+              <dt>key rule</dt><dd>a Bundle entry runs through <code>dispatch_single</code> &mdash; no separate Bundle validation logic exists</dd>
+            </dl>
+          </article>
+
+          <article class="step">
+            <div class="step__head"><span class="step__n">5</span><span class="step__title">canonicalize</span><span class="step__file">fhirpipeline/canonicalize.py</span></div>
+            <dl class="kv">
+              <dt>in</dt><dd><code>(resource_type, dict)</code></dd>
+              <dt>out</dt><dd>canonical JSON dict: <code>json.loads(model.json(exclude_none=True))</code></dd>
+              <dt>raises</dt><dd><code>StructuralError</code> 400 &mdash; one <code>issue</code> per pydantic error, with a FHIRPath <code>expression</code></dd>
+              <dt>needs</dt><dd><code>fhir.resources==7.1.0</code> + <code>pydantic</code> v1 API &mdash; the only external dependency in the pipeline</dd>
+            </dl>
+          </article>
+
+          <article class="step">
+            <div class="step__head"><span class="step__n">6</span><span class="step__title">validate</span><span class="step__file">fhirpipeline/validate.py</span></div>
+            <dl class="kv">
+              <dt>in</dt><dd><code>(spec, canonical_dict)</code></dd>
+              <dt>out</dt><dd><code>list[warning issue]</code> (possibly empty)</dd>
+              <dt>raises</dt><dd><code>ValidationFailed</code> 422 &mdash; carries <em>every</em> error and warning issue found</dd>
+              <dt>checks</dt><dd>required (str or tuple = &ldquo;one of&rdquo;) &middot; value sets (<code>COMMON_VALUE_SETS</code> + spec) &middot; invariants (<code>obs_6</code>, <code>obs_7</code>, <code>has_a_result</code>)</dd>
+            </dl>
+          </article>
+
+          <article class="step">
+            <div class="step__head"><span class="step__n">7</span><span class="step__title">assemble</span><span class="step__file">fhirpipeline/pipeline.py</span></div>
+            <dl class="kv">
+              <dt>entry</dt><dd><code>ingest(raw, content_type, hint) &rarr; IngestResult</code></dd>
+              <dt>out</dt><dd><code>ok</code>, <code>status</code>, <code>kind</code> (<code>single</code>/<code>bundle</code>/<code>error</code>), <code>canonical</code>, <code>bundle</code>, <code>outcome</code>, <code>warnings</code>, <code>resource_type</code></dd>
+              <dt>guarantee</dt><dd>never raises &mdash; <code>PipelineError</code> &rarr; mapped; other <code>Exception</code> &rarr; 500 generic + <code>traceback</code> to stdout</dd>
+              <dt>bundle</dt><dd>rejected transaction &rarr; <code>_bundle_outcome()</code>: one issue per failed entry, tagged <code>Bundle.entry[N]</code></dd>
+            </dl>
+          </article>
+
+          <article class="step">
+            <div class="step__head"><span class="step__n">8</span><span class="step__title">persist</span><span class="step__file">fhirpipeline/persist.py</span></div>
+            <dl class="kv">
+              <dt>in</dt><dd><code>get_collection</code>, <code>clientname</code>, <code>canonical</code>, <code>operation</code>, <code>resource_id?</code></dd>
+              <dt>out</dt><dd><code>PersistResult(ok, status, resource, outcome, location, spooled_path)</code></dd>
+              <dt>create</dt><dd>uuid <code>id</code> &middot; <code>meta.versionId "1"</code> &middot; dedup ResourceId&rarr;identifier&rarr;business key &middot; insert &rarr; <code>201</code> + <code>Location</code></dd>
+              <dt>update</dt><dd>find current or <code>404</code> &middot; <code>versionId+1</code> &middot; flip old <code>IsCurrent&rarr;0</code> &middot; insert &rarr; <code>200</code></dd>
+              <dt>delete</dt><dd>find current or <code>404</code> &middot; flip &middot; insert tombstone (<code>DeletedFlag 1</code>) &rarr; <code>204</code></dd>
+              <dt>DB down</dt><dd>write &rarr; spool JSON file + <code>202</code> &nbsp;&middot;&nbsp; delete &rarr; <code>503</code></dd>
+              <dt>reads see</dt><dd>only rows matching <code>IsCurrent: 1, DeletedFlag: 0</code></dd>
+            </dl>
+          </article>
+
+          <article class="step">
+            <div class="step__head"><span class="step__n">9</span><span class="step__title">Transport response</span><span class="step__file">resource_common.py / bundle_common.py</span></div>
+            <dl class="kv">
+              <dt>single</dt><dd>body = <code>pr.resource</code> or <code>pr.outcome</code>; headers <code>Location</code>, <code>ETag: W/"&lt;versionId&gt;"</code>; status = <code>pr.status</code></dd>
+              <dt>bundle</dt><dd>stitch <code>Bundle</code> <code>&lt;type&gt;-response</code>; each entry &rarr; <code>response.status</code> (+ <code>location</code> / <code>resource</code> / <code>outcome</code>); HTTP <code>200</code></dd>
+              <dt>always</dt><dd>tracking record written; unhandled exception &rarr; <code>500</code> <code>OperationOutcome</code>, traceback to logs, never the body</dd>
+            </dl>
+          </article>
+
+        </div>
+      </section>
+
+      <section id="read">
+        <h2>Read side</h2>
+        <p>Reads skip steps 2&ndash;7 entirely &mdash; there is no body to canonicalize. Auth (step 1) still runs, then a query goes straight to <code>search.py</code>, which builds a Mongo query pinned to <code>IsCurrent: 1, DeletedFlag: 0</code>.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Endpoint</th><th>Function</th><th>Returns</th><th>Notable</th></tr></thead>
+            <tbody>
+              <tr><td><code>GET /X?params</code></td><td><code>run_search</code> &rarr; <code>build_search</code></td><td><code>searchset</code> Bundle + <code>self</code>/<code>next</code> links</td><td><code>_count</code> capped at 200 &middot; <code>_offset</code> &middot; <code>_sort</code> &middot; date prefixes <code>ge</code>/<code>le</code>&hellip; &middot; bare <code>patient=123</code> &rarr; <code>Patient/123</code></td></tr>
+              <tr><td><code>GET /X/&lt;id&gt;</code></td><td><code>read_by_id</code></td><td>the resource + <code>ETag</code></td><td>a deleted resource reads as <span class="http" data-k="4">404</span></td></tr>
+              <tr><td><code>GET /X/&lt;id&gt;/_history</code></td><td><code>read_history</code></td><td><code>history</code> Bundle, oldest first</td><td>method per row: <code>POST</code> (v1) / <code>PUT</code> / <code>DELETE</code></td></tr>
+              <tr><td><code>GET /X/&lt;id&gt;/_history/&lt;vid&gt;</code></td><td><code>read_version</code></td><td>that version</td><td><span class="http" data-k="4">410</span> if that version is a deletion</td></tr>
+              <tr><td colspan="4"><em>Any read, DB unavailable</em> &rarr; <span class="http" data-k="5">503</span> <code>OperationOutcome</code></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="failure">
+        <h2>Failure map</h2>
+        <p>Every exit in the diagram, in the order a request can hit it. One currency throughout: an <code>OperationOutcome</code> with a matching HTTP status.</p>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Raised at</th><th>Condition</th><th>HTTP</th><th>issue.code</th></tr></thead>
+            <tbody>
+              <tr><td>1 · transport auth</td><td>no <code>Client</code> header / bad or missing JWT</td><td class="http" data-k="4">401</td><td>security</td></tr>
+              <tr><td>2 · parse</td><td>Content-Type not JSON</td><td class="http" data-k="4">415</td><td>not-supported</td></tr>
+              <tr><td>2 · parse</td><td>empty / whitespace body</td><td class="http" data-k="4">400</td><td>required</td></tr>
+              <tr><td>2 · parse</td><td>invalid JSON, not an object, or no <code>resourceType</code></td><td class="http" data-k="4">400</td><td>structure</td></tr>
+              <tr><td>4 · dispatch</td><td>body <code>resourceType</code> &ne; URL</td><td class="http" data-k="4">400</td><td>processing</td></tr>
+              <tr><td>4 · dispatch</td><td><code>Bundle.type</code> not transaction/batch/collection</td><td class="http" data-k="4">400</td><td>structure</td></tr>
+              <tr><td>3 / 4 · dispatch</td><td>no registry entry for the <code>resourceType</code></td><td class="http" data-k="4">404</td><td>not-supported</td></tr>
+              <tr><td>5 · canonicalize</td><td>does not construct into the R4B model</td><td class="http" data-k="4">400</td><td>structure</td></tr>
+              <tr><td>6 · validate</td><td>missing required / bad coded value / invariant broken</td><td class="http" data-k="4">422</td><td>invariant</td></tr>
+              <tr><td>7 · assemble</td><td>transaction Bundle with any failed entry</td><td class="http" data-k="4">400</td><td>processing</td></tr>
+              <tr><td>7 · assemble</td><td>any unexpected exception (detail to logs only)</td><td class="http" data-k="5">500</td><td>exception</td></tr>
+              <tr><td>8 · persist</td><td>create hits an existing resource</td><td class="http" data-k="4">409</td><td>duplicate</td></tr>
+              <tr><td>8 · persist</td><td>update / delete target not found</td><td class="http" data-k="4">404</td><td>not-found</td></tr>
+              <tr><td>8 · persist</td><td>DB unavailable, write &mdash; accepted &amp; spooled</td><td class="http" data-k="2">202</td><td>informational</td></tr>
+              <tr><td>8 · persist</td><td>DB unavailable, delete</td><td class="http" data-k="5">503</td><td>transient</td></tr>
+              <tr><td>9 · transport</td><td>anything unhandled below auth</td><td class="http" data-k="5">500</td><td>exception</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="ex-single">
+        <h2><span class="n">A</span>Example &mdash; <code>POST /Observation</code>, DB up, valid</h2>
+        <div class="trace">
+<span class="lbl">1 route+auth</span>  Client + Bearer JWT ok <span class="arrow">&rarr;</span> clientname="lab-a"<br>
+<span class="lbl">2 parse</span>      body is a dict, resourceType="Observation" <span class="arrow">&rarr;</span> (dict, [])<br>
+<span class="lbl">3 registry</span>   get_spec("Observation") <span class="arrow">&rarr;</span> ResourceSpec(collection="Observation", &hellip;)<br>
+<span class="lbl">4 dispatch</span>   hint "Observation" == body <span class="arrow">&rarr;</span> dispatch_single<br>
+<span class="lbl">5 canonical</span>  construct_fhir_element ok <span class="arrow">&rarr;</span> canonical JSON (nulls dropped, dates ISO)<br>
+<span class="lbl">6 validate</span>   status "final" &isin; set &middot; code present &middot; obs-6/obs-7 ok <span class="arrow">&rarr;</span> warnings=[]<br>
+<span class="lbl">7 assemble</span>   IngestResult(ok=<span class="r-ok">True</span>, kind="single", canonical=&hellip;)<br>
+<span class="lbl">8 persist</span>    create: id=uuid4, meta.versionId="1"; no duplicate; insert row IsCurrent=1<br>
+<span class="lbl">9 response</span>   <span class="r-ok">201 Created</span>  Location: Observation/&lt;id&gt;/_history/1   ETag: W/"1"
+        </div>
+      </section>
+
+      <section id="ex-bundle">
+        <h2><span class="n">B</span>Example &mdash; <code>POST /Bundle</code> transaction, one bad entry</h2>
+        <p><code>entry[0]</code> a valid Observation; <code>entry[1]</code> an Observation with <code>status: "bogus"</code>.</p>
+        <div class="trace">
+<span class="lbl">1 route+auth</span>  ok <span class="arrow">&rarr;</span> clientname="lab-a"<br>
+<span class="lbl">2 parse</span>      resourceType="Bundle" <span class="arrow">&rarr;</span> (dict, [])<br>
+<span class="lbl">4 dispatch</span>   Bundle.type="transaction" ok <span class="arrow">&rarr;</span> dispatch_bundle<br>
+<span class="arrow">  &nbsp;&nbsp;entry[0]</span> &rarr; dispatch_single &rarr; 5 canonical ok &rarr; 6 validate ok <span class="arrow">&rarr;</span> EntryResult(ok=<span class="r-ok">True</span>)<br>
+<span class="arrow">  &nbsp;&nbsp;entry[1]</span> &rarr; dispatch_single &rarr; 6 validate: "bogus" &notin; status value set<br>
+<span class="arrow">  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> ValidationFailed caught <span class="arrow">&rarr;</span> EntryResult(ok=<span class="r-bad">False</span>, issues=[&hellip;])<br>
+<span class="lbl">7 assemble</span>   any_error &amp; type==transaction <span class="arrow">&rarr;</span> rejected<br>
+<span class="arrow">  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span> IngestResult(ok=<span class="r-bad">False</span>, status=400, outcome=_bundle_outcome)<br>
+<span class="lbl">9 response</span>   <span class="r-bad">400 Bad Request</span>  OperationOutcome &mdash; one issue per failed entry, tagged Bundle.entry[1]<br>
+<span class="arrow">           </span> nothing persisted
+        </div>
+        <div class="callout">
+          <p>Swap <code>type</code> to <code>batch</code> and the same input returns <span class="http" data-k="2">200</span> with a <code>batch-response</code> Bundle: <code>entry[0]</code> at <code>201</code>, <code>entry[1]</code> at <code>400</code>. Batch tolerates partial; transaction does not.</p>
+        </div>
+      </section>
+
+      <section id="extend">
+        <h2>Where to change things</h2>
+        <div class="steps">
+          <article class="step">
+            <div class="step__head"><span class="step__title">A new resource type</span></div>
+            <p style="margin:0">Add one <code>RESOURCE_REGISTRY</code> entry in <code>registry.py</code> (collection, required fields, value sets, optional <code>duplicate_key_fn</code>, search params). Optionally a module under <code>invariants/</code> for cross-element rules. Then a one-line blueprint: <code>make_resource_blueprint('NewType')</code>. Steps 2&ndash;9 pick it up unchanged.</p>
+          </article>
+          <article class="step">
+            <div class="step__head"><span class="step__title">A new module</span></div>
+            <p style="margin:0">Its resource files each call <code>make_resource_blueprint(...)</code>; one file calls <code>make_bundle_blueprint('ModuleName')</code>. Auth, ingest, persist, and search are all shared &mdash; nothing in <code>fhirpipeline/</code> changes.</p>
+          </article>
+          <article class="step">
+            <div class="step__head"><span class="step__title">Phase 2 &mdash; XML input</span></div>
+            <p style="margin:0">A single branch in <code>parse.py</code> (step 2): detect XML, transcode to a JSON dict, return it. Steps 3&ndash;9 are already JSON-only by contract, so they do not change. The internal canonical form stays FHIR JSON.</p>
+          </article>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <footer>
+    fhirpipeline &middot; Diagnostic Module &middot; generated 2026-08-27 &middot; source of truth: src/interop/fhirpipeline/
+  </footer>
+
+</div>
